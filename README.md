@@ -21,17 +21,19 @@
 
 ## 2. 選擇規格與架構
 
-| CPU | RAM | AMD64 label | ARM64 label | 每種架構的配置上限 |
+| CPU | RAM | AMD64 label | ARM64 label | AMD64 / ARM64 配置上限 |
 |---:|---:|---|---|---:|
-| 2 | 4 GiB | `gke-2cpu-4gb-amd64` | `gke-2cpu-4gb-arm64` | 16 |
-| 4 | 8 GiB | `gke-4cpu-8gb-amd64` | `gke-4cpu-8gb-arm64` | 16 |
-| 8 | 16 GiB | `gke-8cpu-16gb-amd64` | `gke-8cpu-16gb-arm64` | 8 |
-| 16 | 32 GiB | `gke-16cpu-32gb-amd64` | `gke-16cpu-32gb-arm64` | 8 |
-| 32 | 64 GiB | `gke-32cpu-64gb-amd64` | `gke-32cpu-64gb-arm64` | 8 |
+| 2 | 4 GiB | `gke-2cpu-4gb-amd64` | `gke-2cpu-4gb-arm64` | 16 / 16 |
+| 4 | 8 GiB | `gke-4cpu-8gb-amd64` | `gke-4cpu-8gb-arm64` | 16 / 16 |
+| 8 | 16 GiB | `gke-8cpu-16gb-amd64` | `gke-8cpu-16gb-arm64` | 16 / 8 |
+| 16 | 32 GiB | `gke-16cpu-32gb-amd64` | `gke-16cpu-32gb-arm64` | 16 / 8 |
+| 32 | 64 GiB | `gke-32cpu-64gb-amd64` | `gke-32cpu-64gb-arm64` | 16 / 8 |
 
-AMD64 與 ARM64 的上限獨立計算；同一規格／架構的容量由獲授權 repositories／organizations 共用，不是每個 repo 各有一份。這些是配置上限，實際可用量仍受雲端 quota、區域機型容量及其他排隊工作影響。
+AMD64 合計 80、ARM64 合計 56，上限獨立計算；同一規格／架構的容量由獲授權 repositories／organizations 共用，不是每個 repo 各有一份。這些是配置上限，實際可用量仍受雲端 quota、區域機型容量及其他排隊工作影響。
 
-每個 job 有獨立的 **80 GiB 工作磁碟**，workspace 與 Docker data 共用。Job 結束、runner pod 刪除後，工作磁碟會自動清除；VM 閒置縮容與磁碟刪除是非同步的。跨 job 資料請明確使用 artifacts／適當的 cache，不能依賴本機工作區保留。
+每個 job 有獨立的 **480 GiB 工作磁碟**，workspace 與 Docker data 共用。Job 結束、runner pod 刪除後，工作磁碟會自動清除；VM 閒置縮容與磁碟刪除是非同步的。跨 job 資料請明確使用 artifacts／適當的 cache，不能依賴本機工作區保留。
+
+工作磁碟預設 480 GiB，既有 runner label 不變。管理者可透過全域 `workspace_gib` 或單一 profile 的同名參數調整容量；新 runner 提供 `RUNNER_WORKSPACE_GIB`。相較 80 GiB，PD Balanced 每個磁碟小時約增加 US$0.055（依地區價格與磁碟存續時間計費）。詳細設定與線上擴容見[主專案文件](https://github.com/luisleo526/gke-actions-fleet#工作磁碟容量與費用)。名稱尾綴不會自動調整容量。
 
 ## 3. 手動試跑
 
@@ -111,7 +113,7 @@ env:
 
 若管理者已配置一般／保護兩條路徑，持有部署、發佈或 baseline promotion 憑證的工作應依核准政策選用保護 group 與獨立 `gkp-*` label；不要為了解除排隊而改送一般 group。
 
-預設 `allow_sudo: true`，可在 runner container 內安裝套件；管理者可為特定 profile 設為 false。Runner 可寫層沒有固定 2 GiB cap，但仍受節點 OS 磁碟限制；大型 workspace、暫存檔及 Docker data 使用獨立 80 GiB job disk。完整能力與界線見[主專案相容性文件](https://github.com/luisleo526/gke-actions-fleet/blob/main/docs/compatibility.md)。
+預設 `allow_sudo: true`，可在 runner container 內安裝套件；管理者可為特定 profile 設為 false。Runner 可寫層沒有固定 2 GiB cap，但仍受節點 OS 磁碟限制；大型 workspace、暫存檔及 Docker data 使用獨立 480 GiB job disk。完整能力與界線見[主專案相容性文件](https://github.com/luisleo526/gke-actions-fleet/blob/main/docs/compatibility.md)。
 
 ## 6. 只允許 organization member 的 PR 使用 Fleet
 
