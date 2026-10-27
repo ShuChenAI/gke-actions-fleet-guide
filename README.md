@@ -25,8 +25,8 @@
 |---:|---:|---|---|---:|
 | 2 | 4 GiB | `gke-2cpu-4gb-amd64` | `gke-2cpu-4gb-arm64` | 16 / 16 |
 | 4 | 8 GiB | `gke-4cpu-8gb-amd64` | `gke-4cpu-8gb-arm64` | 16 / 16 |
-| 16 / 8 | 16 GiB | `gke-8cpu-16gb-amd64` | `gke-8cpu-16gb-arm64` | 16 / 8 |
-| 16 / 16 | 32 GiB | `gke-16cpu-32gb-amd64` | `gke-16cpu-32gb-arm64` | 16 / 8 |
+| 8 | 16 GiB | `gke-8cpu-16gb-amd64` | `gke-8cpu-16gb-arm64` | 16 / 8 |
+| 16 | 32 GiB | `gke-16cpu-32gb-amd64` | `gke-16cpu-32gb-arm64` | 16 / 8 |
 | 32 | 64 GiB | `gke-32cpu-64gb-amd64` | `gke-32cpu-64gb-arm64` | 16 / 8 |
 
 AMD64 合計 80、ARM64 合計 56，上限獨立計算；同一規格／架構的容量由獲授權 repositories／organizations 共用，不是每個 repo 各有一份。這些是配置上限，實際可用量仍受雲端 quota、區域機型容量及其他排隊工作影響。
