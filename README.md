@@ -65,7 +65,7 @@ jobs:
             "$RUNNER_PROFILE" "$RUNNER_CPU_LIMIT" "$RUNNER_MEMORY_LIMIT"
 ```
 
-在已獲授權的非 PR 工作中，可以保留原本的 build/test steps，改用上述 `runs-on`。使用這份規格 label 時，請一併移除舊 fleet 的動態 job labels；其他 labels 必須先與管理者確認。PR 工作請使用第 5 節的完整身分檢查流程，勿直接加上未受保護的 PR trigger。
+在已獲授權的非 PR 工作中，可以保留原本的 build/test steps，改用上述 `runs-on`。使用這份規格 label 時，請一併移除舊 fleet 的動態 job labels；其他 labels 必須先與管理者確認。PR 工作請使用第 6 節的完整身分檢查流程，勿直接加上未受保護的 PR trigger。
 
 ## 4. 同時測試 AMD64 與 ARM64
 
@@ -83,7 +83,37 @@ runs-on:
 
 ARM64 是原生 ARM 執行，不是自動模擬 AMD64。使用的 actions、Docker images、下載的 binaries 及 native dependencies 都需要支援所選架構。macOS／Windows jobs 請繼續使用適合的 OS runner。
 
-## 5. 只允許 organization member 的 PR 使用 Fleet
+## 5. Repository secrets 與 GitHub Environments
+
+Fleet 使用標準 GitHub self-hosted runner。Repository／獲授權 organization secrets、variables、`GITHUB_TOKEN` permissions、OIDC、artifacts/cache、reusable workflows、Docker job/service containers 都沿用 GitHub Actions 的正常行為。
+
+完整範例：[examples/secrets-environment.yml](examples/secrets-environment.yml)。在要使用的 GKE job 本身指定：
+
+```yaml
+runs-on:
+  group: gke-runners
+  labels: gke-4cpu-8gb-amd64
+environment: staging
+permissions:
+  contents: read
+  id-token: write
+env:
+  API_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+  API_URL: ${{ vars.API_URL }}
+```
+
+- `environment: staging` 選擇 GitHub Environment，其 secrets、variables、required reviewers 與 deployment branch rules 對該 job 生效。
+- `env:` 才是傳給 job 程序的環境變數。Secret 必須透過 `${{ secrets.NAME }}` 明確傳給 `env` 或 action 的 `with`，不會自動變成 `.env` 檔或全部程序的環境變數。
+- Repository secrets 可在同一個 job 取用；organization secrets 需先授權該 repo。另一個 job 的 environment 不會自動繼承。
+- Reusable workflow 若需要 caller secrets，可由受信任 caller 宣告 `secrets: inherit`；environment secrets 由實際宣告 environment 的 job 取得。
+- OIDC 需要 `id-token: write` 及雲端的 federation 設定；這不會自動授予 operator ADC 或 Kubernetes 權限。
+- 標準 GitHub 對 fork／Dependabot secrets 的限制仍適用。PR 保留下一節的成員檢查，不要把會員驗證 App／runner 管理 App 的私鑰傳入測試 job。
+
+若管理者已配置一般／保護兩條路徑，持有部署、發佈或 baseline promotion 憑證的工作應依核准政策選用保護 group 與獨立 `gkp-*` label；不要為了解除排隊而改送一般 group。
+
+預設 `allow_sudo: true`，可在 runner container 內安裝套件；管理者可為特定 profile 設為 false。Runner 可寫層沒有固定 2 GiB cap，但仍受節點 OS 磁碟限制；大型 workspace、暫存檔及 Docker data 使用獨立 80 GiB job disk。完整能力與界線見[主專案相容性文件](https://github.com/luisleo526/gke-actions-fleet/blob/main/docs/compatibility.md)。
+
+## 6. 只允許 organization member 的 PR 使用 Fleet
 
 完整範例：[examples/member-only-pr.yml](examples/member-only-pr.yml)。請將它複製到目標 repository 的 `.github/workflows/gke-member-pr.yml`，再由管理者完成以下設定：
 
@@ -110,16 +140,16 @@ ARM64 是原生 ARM 執行，不是自動模擬 AMD64。使用的 actions、Dock
 
 此範例需完成 App、environment 與 allowlist 設定後才可使用；缺少設定時會拒絕執行。範例中的 GKE steps 只驗證執行環境，請加入目標專案的實際 build/test 指令。完整原理與驗收項目見[主專案的 PR 存取控制文件](https://github.com/luisleo526/gke-actions-fleet/blob/main/docs/member-only-pr.md)。
 
-## 6. 遷移時要注意
+## 7. 遷移時要注意
 
-- Fleet image 不等同 `ubuntu-latest` 的完整工具集合。請明確設定 Python／Node 等版本；需要系統套件時，與管理者協作建立 runner image。Runner steps 預設無法 `sudo apt-get`。
+- Fleet image 不等同 `ubuntu-latest` 的完整工具集合。請明確設定 Python／Node 等版本；預設可在 ephemeral runner container 內執行 `sudo -n apt-get`；常用套件也可與管理者協作預裝至 runner image。這不包含 node／VM 的 systemd、kernel 或叢集管理權限。
 - Runner 與 DinD 的 CPU／RAM limits 依規格設定，兩者共用底層 VM；重型 host 與 Docker 工作同時執行時，要一起評估記憶體需求。
 - 原生編譯平行度建議使用 `RUNNER_CPU_LIMIT`；`nproc` 可能回報較大底層 VM 的核心數。
 - 冷啟動包含 VM、image pull 與磁碟建立，第一批工作可能較慢。請明確設定 `timeout-minutes`，不要把冷啟動時間視為固定 SLA。
 - Docker 使用每個 runner 獨立的 DinD；服務容器與特殊網路假設需要實測。需要 GCP 等雲端權限的工作，另行設定最小權限 OIDC，不使用操作人員 ADC。
 - Fleet 僅供同一信任邊界內的獲授權工作。Privileged DinD 不是敵意多租戶沙箱；不要將未審查的 fork code 直接送進 worker。
 
-## 7. 工作一直排隊時
+## 8. 工作一直排隊時
 
 依序提供以下資訊給 Fleet 管理者，不要附上任何 token／私鑰：
 
