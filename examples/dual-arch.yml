@@ -1,0 +1,27 @@
+name: Fleet native architecture check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [amd64, arm64]
+    runs-on:
+      group: gke-runners
+      labels: ${{ format('gke-8cpu-16gb-{0}', matrix.architecture) }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Verify runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -m
+          git rev-parse HEAD
+          printf 'Profile: %s; CPU quota: %s; RAM bytes: %s\n' \
+            "$RUNNER_PROFILE" "$RUNNER_CPU_LIMIT" "$RUNNER_MEMORY_LIMIT"
